@@ -108,11 +108,15 @@ def filter_chunk(chunk: pd.DataFrame, scheme: str | None) -> tuple[pd.DataFrame,
     df["age5"] = np.minimum(df["age_lb"] // 5 * 5, C.AGE_TOP).astype(int)
     hour = pd.to_numeric(df["arr_time"], errors="coerce")
     df["daynight"] = np.where(hour.isin(C.DAY_HOURS), "day", "night")
+    df["timeband"] = pd.cut(hour, C.TIMEBAND_EDGES, right=False, labels=C.TIMEBAND_LABELS).astype(str)
+    df["timeband"] = df["timeband"].replace(C.TIMEBAND_MERGE)
     df["daytype"] = assign_daytype(df)
     df["orig_sgg"] = df["orig"].str[:5]
     df["dest_gu"] = df["dest"].str[:5]
-    cols = ["ym", "date", "daytype", "daynight", "orig_sgg", "dest_gu", "sex", "age5",
-            "purpose", "move_type", "flow", "masked"]
+    if "travel_min" in df:
+        df["travel_min"] = pd.to_numeric(df["travel_min"], errors="coerce")
+    cols = ["ym", "date", "daytype", "daynight", "timeband", "orig", "orig_sgg", "dest", "dest_gu",
+            "sex", "age5", "purpose", "move_type", "travel_min", "flow", "masked"]
     return df[[c for c in cols if c in df]], scheme
 
 
