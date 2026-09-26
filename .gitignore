@@ -4,3 +4,5 @@ outputs/*.parquet
 __pycache__/
 *.pyc
 data/synthetic/
+outputs/synthetic/
+outputs/*.rds
