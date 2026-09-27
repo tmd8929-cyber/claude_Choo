@@ -11,3 +11,4 @@ outputs/*.parquet
 __pycache__/
 *.pyc
 .env
+src/__pycache__/
