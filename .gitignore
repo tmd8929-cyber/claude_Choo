@@ -10,3 +10,4 @@ outputs/*.rds
 outputs/*.parquet
 __pycache__/
 *.pyc
+.env
