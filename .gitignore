@@ -4,6 +4,7 @@ data/synthetic/
 data/synthetic_regional/
 data/boundary/
 data/regional/poi/
+data/regional/raw_api/
 data/regional/grid_pop.csv
 outputs/synthetic*/
 outputs/*.rds

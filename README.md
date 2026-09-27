@@ -13,7 +13,10 @@ bash scripts/get_boundary.sh                 # 행정동 경계 (GitHub, SGIS �
 
 # 1) 원자료: 생활이동 CSV(시간대별 전부) → data/raw/
 python -m src.preprocess                     # → data/processed/elderly_inflow.parquet
-# 2) 지역변수: 시설 좌표 CSV → data/regional/poi/, (선택) 100m 격자인구 → data/regional/grid_pop.csv
+# 2) 지역변수: 수집(키는 환경 Secrets 또는 .env) → data/regional/poi/*.csv, grid_pop.csv
+python -m src.collect subway store hospital pharmacy osm
+python -m src.collect welfare --service welfare=<서울 열린데이터 서비스명>
+python -m src.collect grid --grid-src <SGIS 격자 파일/폴더> --elderly-items <65세+ 항목코드,...>
 python -m src.regional                       # → data/regional/regional_{dong,sgg}.csv
 # 3) 코호트
 python -m src.cohort --dest-level dong --time-var timeband   # → data/processed/cohort_dong.csv
@@ -45,15 +48,24 @@ Rscript R/mlm_gu.R   data/processed/cohort_gu.csv   outputs
 시설 범주(`POI_RULES`): hospital, clinic, pharmacy, market, welfare, leisure, religion, park, subway.
 업종명 키워드로 분류하며, 못 한 업종은 `poi_uncategorized.csv`로 빠진다(수작업·LLM 분류 대상).
 
-### 지역변수 원자료 (네트워크·키 필요)
-| 범주 | 자료 | 형식 |
-|---|---|---|
-| 상가 업종 전반 | 소상공인시장진흥공단 상가(상권)정보 | CSV (소분류명, 경도, 위도) → `poi/store.csv` |
-| 병원·의원 | 건강보험심사평가원 병원정보서비스 | CSV (종별코드명, XPos, YPos) |
-| 노인복지시설 | 서울 열린데이터 노인여가복지시설 | 좌표 CSV → `poi/welfare.csv` |
-| 지하철역 | 서울 열린데이터 역 좌표 | 좌표 CSV → `poi/subway.csv` |
-| 공원·종교 | OpenStreetMap (Geofabrik) | 좌표 CSV |
-| 100m 격자인구 | SGIS 격자통계(총인구·65세 이상) | x, y(EPSG:5179 중심점), pop_total, pop_65p |
+### 지역변수 원자료 수집 (`src/collect.py`)
+| 명령 | 자료 | 키 | 출력 → 범주 |
+|---|---|---|---|
+| `subway` | 서울 열린데이터 역사마스터(`subwayStationMaster`), 환승역은 역 하나로 | `SEOUL_API_KEY` | `poi/subway.csv` → subway |
+| `welfare` | 서울 열린데이터 노인여가복지시설 (서비스명은 `--service`로) | `SEOUL_API_KEY` | `poi/welfare.csv` → welfare |
+| `store` | 소상공인시장진흥공단 상가(상권)정보 `sdsc2`, 서울·경기·인천 | `DATA_GO_KR_KEY` | `poi/store.csv` → 소분류명 키워드 분류 |
+| `hospital` | 심평원 병원정보서비스 v2 | `DATA_GO_KR_KEY` | `poi/hospital.csv` → 종별코드명으로 hospital/clinic |
+| `pharmacy` | 심평원 약국정보서비스 | `DATA_GO_KR_KEY` | `poi/pharmacy.csv` → pharmacy |
+| `osm` | OpenStreetMap Overpass (종교시설, 공원 중심점) | – | `poi/religion.csv`, `poi/park.csv` |
+| `grid` | SGIS 100m 격자통계(자료신청 후 받은 `연도^격자코드^항목^값` 파일) | – | `grid_pop.csv` (격자코드 → EPSG:5179 중심점) |
+
+- 서울뿐 아니라 경기·인천도 받는다(출발 시군구 `o_dens_*`).
+- API 응답은 `data/regional/raw_api/`에 쪽별로 저장되어, 일일 호출 한도에 걸려도 다시 실행하면 이어받는다.
+- 한 범주를 여러 파일이 주면 `POI_CATEGORY_SOURCE`의 출처만 쓴다(예: 상가정보의 병원·약국 대신 심평원 전수자료).
+- `grid`를 항목코드 없이 실행하면 파일에 있는 항목코드 목록을 보여 준다. 비식별 셀은 `--grid-masked`(기본 1.5)로 대체.
+- 수집 코드는 실제 응답 형식의 모의 응답과 실제 행정동 경계로 검증했다(캐시 재사용, 키 마스킹, 격자코드 복원 포함).
+  아직 실제 API로는 돌려 보지 않았다. 현재 클라우드 환경의 네트워크 정책이
+  `openapi.seoul.go.kr`, `apis.data.go.kr`, `overpass-api.de`, `sgis.kostat.go.kr`를 막고 있다.
 
 ## 이전 연구에서 모형이 막힌 원인과 수정
 | 문제 | 원인 | 수정 |

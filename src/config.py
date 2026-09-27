@@ -72,3 +72,21 @@ POI_RULES = {
 }
 # 위 키워드에 걸려도 제외할 업종 (예: 동물병원)
 POI_EXCLUDE = ["동물", "애견", "애완", "반려"]
+
+# ---- 지역변수 수집 (src/collect.py) ----------------------------------------------
+# 서울 열린데이터 Open API 서비스명. 빈 값은 --service 출처=서비스명 으로 지정.
+SEOUL_SERVICES = {
+    "subway": "subwayStationMaster",  # 서울시 역사마스터 정보 (LAT, LOT)
+    "welfare": "",                    # 노인여가복지시설: 데이터셋 'Open API' 탭에서 서비스명 확인
+}
+# 한 범주를 여러 파일이 줄 때 남길 파일(파일명, 확장자 제외). 그 파일이 있으면 다른 파일의 같은 범주는 버린다.
+# 예: 상가정보(store.csv)의 '병원'·'약국'보다 심평원 전수자료를 쓴다.
+POI_CATEGORY_SOURCE = {
+    "hospital": "hospital",
+    "clinic": "hospital",
+    "pharmacy": "pharmacy",
+    "subway": "subway",
+    "welfare": "welfare",
+    "religion": "religion",
+    "park": "park",
+}

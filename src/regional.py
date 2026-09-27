@@ -2,9 +2,10 @@
 
 입력
 - data/boundary/HangJeongDong_ver*.geojson : 행정동 경계 (vuski/admdongkor, SGIS 원자료, CC BY 4.0)
-- data/regional/poi/*.csv : 시설 좌표. 파일마다 다음 중 하나
+- data/regional/poi/*.csv : 시설 좌표 (src/collect.py가 만든다). 파일마다 다음 중 하나
     · 경도/위도(WGS84) 또는 x/y(EPSG:5179) + 업종명 컬럼 → POI_RULES 키워드로 범주 분류
     · 좌표만 있으면 파일명(확장자 제외)을 범주로 사용 (예: subway.csv → subway)
+    · 한 범주가 여러 파일에 있으면 C.POI_CATEGORY_SOURCE의 파일만 쓴다
 - data/regional/grid_pop.csv (선택) : 100m 격자 인구. x,y(EPSG:5179 중심점) + pop_total, pop_65p
 
 처리
@@ -108,11 +109,19 @@ def load_pois(poi_dir: Path, out_dir: Path) -> gpd.GeoDataFrame:
             g["category"] = f.stem
         g = g.dropna(subset=["category"])
         g = g[~g.geometry.is_empty & g.geometry.x.notna()]
-        frames.append(g[["category", "geometry"]])
+        frames.append(g[["category", "geometry"]].assign(source=f.stem))
         print(f"[regional] {f.name}: {len(g):,}개 → {g['category'].value_counts().to_dict()}")
     if uncategorized:
         pd.concat(uncategorized).to_csv(out_dir / "poi_uncategorized.csv", index=False, encoding="utf-8-sig")
-    return gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), crs=CRS)
+    pois = pd.concat(frames, ignore_index=True)
+    # 같은 범주를 여러 파일이 주면 지정 출처만 남긴다 (중복 집계 방지)
+    stems = set(pois["source"])
+    owner = pois["category"].map(C.POI_CATEGORY_SOURCE)
+    drop = owner.isin(stems) & (owner != pois["source"])
+    if drop.any():
+        dropped = pois[drop].groupby(["source", "category"]).size().to_dict()
+        print(f"[regional] 우선 출처가 있어 제외: {dropped}")
+    return gpd.GeoDataFrame(pois[~drop].drop(columns="source"), crs=CRS)
 
 
 def build_grid(dongs: gpd.GeoDataFrame, size: int) -> gpd.GeoDataFrame:
